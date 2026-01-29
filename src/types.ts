@@ -23,6 +23,7 @@ export interface Project {
   lastWorkedAt?: number;
   estimatedHours?: number;
   hoursSpent: number;
+  repository?: string | null; // GitHub repository URL
 }
 
 /**

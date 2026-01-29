@@ -31,6 +31,7 @@ export class DiscordIntegration {
     summary?: string;
     outcome?: string;
     error?: string;
+    repository?: string | null;
   }): Promise<void> {
     if (!this.config.enabled) {
       return;
@@ -61,6 +62,10 @@ export class DiscordIntegration {
       }
     } else if (data.error) {
       message += `\n**Error:** ${data.error}\n`;
+    }
+
+    if (data.repository) {
+      message += `\n**Repository:** ${data.repository}`;
     }
 
     try {

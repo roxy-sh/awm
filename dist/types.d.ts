@@ -21,6 +21,7 @@ export interface Project {
     lastWorkedAt?: number;
     estimatedHours?: number;
     hoursSpent: number;
+    repository?: string | null;
 }
 /**
  * A work session represents autonomous work time

@@ -338,6 +338,7 @@ Work directory: ~/clawd/awm-workspace/${project.id}
                 summary: session.summary,
                 outcome,
                 error: error || session.error,
+                repository: project.repository,
             });
         }
         catch (err) {
