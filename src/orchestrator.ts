@@ -2,6 +2,7 @@ import { StateManager } from './state';
 import { EventManager } from './events';
 import { WorkQueue } from './queue';
 import { ClawdbotIntegration } from './clawdbot';
+import { DiscordIntegration } from './discord';
 import type { AWMConfig, WorkSession, WorkTrigger, Project } from './types';
 
 /**
@@ -13,19 +14,31 @@ export class WorkOrchestrator {
   private events: EventManager;
   private queue: WorkQueue;
   private clawdbot?: ClawdbotIntegration;
+  private discord?: DiscordIntegration;
   private running: boolean;
   private processingInterval?: NodeJS.Timeout;
 
-  constructor(config: AWMConfig, state: StateManager, events: EventManager, clawdbot?: ClawdbotIntegration) {
+  constructor(
+    config: AWMConfig, 
+    state: StateManager, 
+    events: EventManager, 
+    clawdbot?: ClawdbotIntegration,
+    discord?: DiscordIntegration
+  ) {
     this.config = config;
     this.state = state;
     this.events = events;
     this.queue = new WorkQueue();
     this.running = false;
     this.clawdbot = clawdbot;
+    this.discord = discord;
 
     if (clawdbot?.isConfigured()) {
       console.log('Clawdbot integration configured');
+    }
+
+    if (discord?.isConfigured()) {
+      console.log('Discord notifications configured');
     }
 
     // Listen to event triggers
@@ -278,6 +291,9 @@ export class WorkOrchestrator {
             this.state.updateProject(project.id, {
               hoursSpent: project.hoursSpent + hoursSpent,
             });
+
+            // Send Discord notification
+            await this.notifyWorkComplete(project, session!, 'completed', duration, lastMessage.content);
           }
 
           this.state.markSessionInactive(sessionId);
@@ -301,6 +317,12 @@ export class WorkOrchestrator {
       duration,
       error: 'Session timeout',
     });
+
+    const session = this.state.getSession(sessionId);
+    const project = session && this.state.getProject(session.projectId);
+    if (project && session) {
+      await this.notifyWorkComplete(project, session, 'failed', duration, undefined, 'Session timeout');
+    }
 
     this.state.markSessionInactive(sessionId);
     await this.state.save();
@@ -335,6 +357,38 @@ When done, provide a concise summary of:
 
 Work directory: ~/clawd/awm-workspace/${project.id}
 `.trim();
+  }
+
+  /**
+   * Send Discord notification for completed work
+   */
+  private async notifyWorkComplete(
+    project: Project,
+    session: WorkSession,
+    status: 'completed' | 'failed',
+    duration: number,
+    outcome?: string,
+    error?: string
+  ): Promise<void> {
+    if (!this.discord?.isConfigured()) {
+      return;
+    }
+
+    try {
+      await this.discord.notifyWorkComplete({
+        projectName: project.name,
+        projectId: project.id,
+        sessionId: session.id,
+        clawdbotSessionKey: session.clawdbotSessionKey,
+        status,
+        duration,
+        summary: session.summary,
+        outcome,
+        error: error || session.error,
+      });
+    } catch (err) {
+      console.error('Failed to send Discord notification:', err);
+    }
   }
 
   /**

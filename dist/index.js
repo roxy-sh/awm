@@ -31,7 +31,7 @@ class AWM {
     events;
     orchestrator;
     initialized;
-    constructor(config, clawdbot) {
+    constructor(config, clawdbot, discord) {
         const defaultConfig = {
             dataDir: path_1.default.join(process.env.HOME || '/tmp', '.awm'),
             maxConcurrentSessions: 2,
@@ -41,7 +41,7 @@ class AWM {
         this.config = { ...defaultConfig, ...config };
         this.state = new state_1.StateManager(this.config.dataDir);
         this.events = new events_1.EventManager();
-        this.orchestrator = new orchestrator_1.WorkOrchestrator(this.config, this.state, this.events, clawdbot);
+        this.orchestrator = new orchestrator_1.WorkOrchestrator(this.config, this.state, this.events, clawdbot, discord);
         this.initialized = false;
     }
     /**
@@ -112,5 +112,6 @@ __exportStar(require("./events"), exports);
 __exportStar(require("./orchestrator"), exports);
 __exportStar(require("./queue"), exports);
 __exportStar(require("./clawdbot"), exports);
+__exportStar(require("./discord"), exports);
 __exportStar(require("./config"), exports);
 //# sourceMappingURL=index.js.map

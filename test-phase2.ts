@@ -7,9 +7,23 @@
  * so we can test the full flow with real Clawdbot tools
  */
 
-import { AWM, ClawdbotIntegration } from './src/index';
+import { AWM, ClawdbotIntegration, DiscordIntegration } from './src/index';
 
-console.log('🧪 AWM Phase 2 Integration Test\n');
+console.log('🧪 AWM Phase 2 Integration Test (with Discord)\n');
+
+// Discord integration (mock for testing)
+const discordIntegration = new DiscordIntegration(
+  {
+    channelId: '1234567890', // Mock channel
+    enabled: true,
+  },
+  async (message) => {
+    console.log('\n📢 Discord Notification:');
+    console.log('─'.repeat(60));
+    console.log(message);
+    console.log('─'.repeat(60));
+  }
+);
 
 // Create integration with inline implementations
 // (In production, these would be injected by the parent Clawdbot process)
@@ -49,7 +63,7 @@ async function test() {
     maxConcurrentSessions: 1,
     defaultSessionDuration: 60 * 1000, // 1 minute for testing
     logLevel: 'info',
-  }, clawdbotIntegration);
+  }, clawdbotIntegration, discordIntegration);
 
   console.log('Initializing AWM...');
   await awm.initialize();

@@ -1,6 +1,7 @@
 import { StateManager } from './state';
 import { EventManager } from './events';
 import { ClawdbotIntegration } from './clawdbot';
+import { DiscordIntegration } from './discord';
 import type { AWMConfig } from './types';
 /**
  * Main orchestrator for autonomous work
@@ -11,9 +12,10 @@ export declare class WorkOrchestrator {
     private events;
     private queue;
     private clawdbot?;
+    private discord?;
     private running;
     private processingInterval?;
-    constructor(config: AWMConfig, state: StateManager, events: EventManager, clawdbot?: ClawdbotIntegration);
+    constructor(config: AWMConfig, state: StateManager, events: EventManager, clawdbot?: ClawdbotIntegration, discord?: DiscordIntegration);
     /**
      * Start the orchestrator
      */
@@ -46,6 +48,10 @@ export declare class WorkOrchestrator {
      * Build context message for AI work session
      */
     private buildWorkContext;
+    /**
+     * Send Discord notification for completed work
+     */
+    private notifyWorkComplete;
     /**
      * Get orchestrator status
      */

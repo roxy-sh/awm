@@ -65,6 +65,10 @@ export interface AWMConfig {
   logLevel: 'debug' | 'info' | 'warn' | 'error';
   clawdbotGatewayUrl?: string;
   clawdbotAuthToken?: string;
+  discord?: {
+    channelId: string;
+    enabled: boolean;
+  };
 }
 
 /**

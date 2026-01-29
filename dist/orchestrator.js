@@ -11,17 +11,22 @@ class WorkOrchestrator {
     events;
     queue;
     clawdbot;
+    discord;
     running;
     processingInterval;
-    constructor(config, state, events, clawdbot) {
+    constructor(config, state, events, clawdbot, discord) {
         this.config = config;
         this.state = state;
         this.events = events;
         this.queue = new queue_1.WorkQueue();
         this.running = false;
         this.clawdbot = clawdbot;
+        this.discord = discord;
         if (clawdbot?.isConfigured()) {
             console.log('Clawdbot integration configured');
+        }
+        if (discord?.isConfigured()) {
+            console.log('Discord notifications configured');
         }
         // Listen to event triggers
         this.events.on('trigger', (trigger) => {
@@ -232,6 +237,8 @@ class WorkOrchestrator {
                         this.state.updateProject(project.id, {
                             hoursSpent: project.hoursSpent + hoursSpent,
                         });
+                        // Send Discord notification
+                        await this.notifyWorkComplete(project, session, 'completed', duration, lastMessage.content);
                     }
                     this.state.markSessionInactive(sessionId);
                     await this.state.save();
@@ -252,6 +259,11 @@ class WorkOrchestrator {
             duration,
             error: 'Session timeout',
         });
+        const session = this.state.getSession(sessionId);
+        const project = session && this.state.getProject(session.projectId);
+        if (project && session) {
+            await this.notifyWorkComplete(project, session, 'failed', duration, undefined, 'Session timeout');
+        }
         this.state.markSessionInactive(sessionId);
         await this.state.save();
     }
@@ -284,6 +296,30 @@ When done, provide a concise summary of:
 
 Work directory: ~/clawd/awm-workspace/${project.id}
 `.trim();
+    }
+    /**
+     * Send Discord notification for completed work
+     */
+    async notifyWorkComplete(project, session, status, duration, outcome, error) {
+        if (!this.discord?.isConfigured()) {
+            return;
+        }
+        try {
+            await this.discord.notifyWorkComplete({
+                projectName: project.name,
+                projectId: project.id,
+                sessionId: session.id,
+                clawdbotSessionKey: session.clawdbotSessionKey,
+                status,
+                duration,
+                summary: session.summary,
+                outcome,
+                error: error || session.error,
+            });
+        }
+        catch (err) {
+            console.error('Failed to send Discord notification:', err);
+        }
     }
     /**
      * Get orchestrator status
