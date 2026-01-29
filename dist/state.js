@@ -9,6 +9,15 @@ const promises_1 = __importDefault(require("fs/promises"));
 const path_1 = __importDefault(require("path"));
 /**
  * Manages persistence of AWM state to disk
+ *
+ * StateManager handles all CRUD operations for projects, sessions,
+ * and events. It uses JSON files for simple, human-readable storage
+ * and maintains in-memory state for fast access.
+ *
+ * File structure:
+ * - projects.json: All project definitions
+ * - sessions.json: Work session history
+ * - events.json: Scheduled event triggers
  */
 class StateManager {
     dataDir;
@@ -37,6 +46,10 @@ class StateManager {
     }
     /**
      * Load state from disk
+     *
+     * Reads JSON files and populates in-memory Maps.
+     * Handles missing files gracefully (ENOENT = file not found).
+     * Other errors (permissions, corrupt JSON) are thrown.
      */
     async load() {
         try {
@@ -48,6 +61,7 @@ class StateManager {
         catch (error) {
             if (error.code !== 'ENOENT')
                 throw error;
+            // File doesn't exist yet - that's OK, start with empty state
         }
         try {
             // Load sessions
@@ -72,6 +86,9 @@ class StateManager {
     }
     /**
      * Save state to disk
+     *
+     * Converts in-memory Maps to JSON arrays and writes atomically.
+     * All three files are written in parallel for performance.
      */
     async save() {
         const projects = Array.from(this.state.projects.values());

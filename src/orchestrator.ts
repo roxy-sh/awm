@@ -183,16 +183,24 @@ export class WorkOrchestrator {
 
   /**
    * Spawn a Clawdbot session for autonomous work
+   * 
+   * This is the core integration point between AWM and Clawdbot.
+   * It creates an isolated AI session with project context and
+   * monitors it until completion.
+   * 
+   * @param project - The project to work on
+   * @param session - The work session record
    */
   private async spawnClawdbotSession(project: Project, session: WorkSession): Promise<void> {
     const contextMessage = this.buildWorkContext(project);
 
     console.log(`Spawning Clawdbot session for project: ${project.name}`);
 
+    // SIMULATION MODE: If no Clawdbot client configured
     if (!this.clawdbot) {
       console.warn('Clawdbot client not configured, running in simulation mode');
       
-      // Simulate work
+      // Simulate work (2 second delay)
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       const duration = Date.now() - (session.startedAt || Date.now());
@@ -215,17 +223,17 @@ export class WorkOrchestrator {
     }
 
     try {
-      // Spawn real Clawdbot session
+      // REAL MODE: Spawn actual Clawdbot session
       const result = await this.clawdbot.spawnSession({
         task: contextMessage,
         label: `awm-${project.id}`,
-        cleanup: 'keep', // Keep session for review
+        cleanup: 'keep', // Keep session for review (don't auto-delete)
         runTimeoutSeconds: Math.floor(this.config.defaultSessionDuration / 1000),
       });
 
       console.log(`Clawdbot session spawned: ${result.sessionKey}`);
 
-      // Update session with Clawdbot session key
+      // Store the Clawdbot session key for later reference
       this.state.updateSession(session.id, {
         clawdbotSessionKey: result.sessionKey,
       });
@@ -253,28 +261,40 @@ export class WorkOrchestrator {
 
   /**
    * Wait for a Clawdbot session to complete and extract results
+   * 
+   * This implements a polling strategy to detect when the spawned
+   * AI session has finished working. It checks the session history
+   * every 5 seconds until either:
+   * - The session produces output (completion)
+   * - The maximum wait time is exceeded (timeout)
+   * 
+   * @param sessionId - AWM session ID
+   * @param clawdbotSessionKey - Clawdbot session key to poll
    */
   private async waitForSessionCompletion(sessionId: string, clawdbotSessionKey: string): Promise<void> {
-    // Poll for completion (simple approach for now)
+    // Configuration for polling
     const maxWaitTime = this.config.defaultSessionDuration + 60000; // +1 minute buffer
     const startTime = Date.now();
     const pollInterval = 5000; // Check every 5 seconds
 
+    // Poll until timeout
     while (Date.now() - startTime < maxWaitTime) {
       await new Promise(resolve => setTimeout(resolve, pollInterval));
 
       try {
         if (!this.clawdbot) break;
 
-        // Get session history to check if it's done
+        // Fetch session history to check if work is done
+        // A session with messages indicates the AI has responded
         const history = await this.clawdbot.getSessionHistory(clawdbotSessionKey, 10);
         
         if (history.length > 0) {
-          // Session has completed (has messages)
+          // SUCCESS: Session has completed and produced output
           const lastMessage = history[history.length - 1];
           
           const duration = Date.now() - (this.state.getSession(sessionId)?.startedAt || Date.now());
           
+          // Update session with completion status
           this.state.updateSession(sessionId, {
             status: 'completed',
             completedAt: Date.now(),
@@ -283,7 +303,7 @@ export class WorkOrchestrator {
             outcome: lastMessage.content?.substring(0, 500) || 'No output',
           });
 
-          // Update project hours
+          // Track time spent on project
           const session = this.state.getSession(sessionId);
           const project = this.state.getProject(session!.projectId);
           if (project) {
@@ -292,7 +312,7 @@ export class WorkOrchestrator {
               hoursSpent: project.hoursSpent + hoursSpent,
             });
 
-            // Send Discord notification
+            // Send Discord notification if configured
             await this.notifyWorkComplete(project, session!, 'completed', duration, lastMessage.content);
           }
 
@@ -302,12 +322,14 @@ export class WorkOrchestrator {
           console.log(`Session ${clawdbotSessionKey} completed successfully`);
           return;
         }
+        // No messages yet - continue polling
       } catch (error) {
         console.error('Error polling session:', error);
+        // Continue polling even on errors (transient network issues)
       }
     }
 
-    // Timeout
+    // TIMEOUT: Session didn't complete within allowed time
     console.warn(`Session ${clawdbotSessionKey} timed out`);
     const duration = Date.now() - (this.state.getSession(sessionId)?.startedAt || Date.now());
     
@@ -318,6 +340,7 @@ export class WorkOrchestrator {
       error: 'Session timeout',
     });
 
+    // Notify about timeout
     const session = this.state.getSession(sessionId);
     const project = session && this.state.getProject(session.projectId);
     if (project && session) {

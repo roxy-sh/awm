@@ -5,6 +5,15 @@ import type { Project, WorkSession, WorkEvent, AWMState } from './types';
 
 /**
  * Manages persistence of AWM state to disk
+ * 
+ * StateManager handles all CRUD operations for projects, sessions,
+ * and events. It uses JSON files for simple, human-readable storage
+ * and maintains in-memory state for fast access.
+ * 
+ * File structure:
+ * - projects.json: All project definitions
+ * - sessions.json: Work session history
+ * - events.json: Scheduled event triggers
  */
 export class StateManager {
   private dataDir: string;
@@ -39,6 +48,10 @@ export class StateManager {
 
   /**
    * Load state from disk
+   * 
+   * Reads JSON files and populates in-memory Maps.
+   * Handles missing files gracefully (ENOENT = file not found).
+   * Other errors (permissions, corrupt JSON) are thrown.
    */
   async load(): Promise<void> {
     try {
@@ -48,6 +61,7 @@ export class StateManager {
       this.state.projects = new Map(projects.map(p => [p.id, p]));
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      // File doesn't exist yet - that's OK, start with empty state
     }
 
     try {
@@ -71,6 +85,9 @@ export class StateManager {
 
   /**
    * Save state to disk
+   * 
+   * Converts in-memory Maps to JSON arrays and writes atomically.
+   * All three files are written in parallel for performance.
    */
   async save(): Promise<void> {
     const projects = Array.from(this.state.projects.values());

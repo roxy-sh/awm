@@ -48,38 +48,148 @@ npm run build
 npm link  # Makes 'awm' command available globally
 ```
 
-## 🚀 Usage
+## 🚀 Quick Start
 
-### Start the daemon
+### 1. Install and Build
+
+```bash
+cd ~/clawd/awm
+npm install
+npm run build
+npm link  # Makes 'awm' globally available
+```
+
+### 2. Configure (Optional)
+
+```bash
+# For real Clawdbot sessions (not simulation)
+awm config set clawdbotGatewayUrl http://localhost:18789
+awm config set clawdbotAuthToken your-token
+
+# For Discord notifications
+awm config set discord.enabled true
+awm config set discord.channelId YOUR_CHANNEL_ID
+```
+
+### 3. Create Your First Project
+
+```bash
+# Create the project
+awm create-project "Nightly Linter" "Run prettier and ESLint auto-fix"
+
+# Get the project ID
+awm list-projects
+
+# Edit project details (add goals, context, nextSteps)
+nano ~/.awm/projects.json
+```
+
+**Example project configuration:**
+
+```json
+{
+  "name": "Nightly Linter",
+  "description": "Run prettier and ESLint auto-fix",
+  "goals": [
+    "Format all TypeScript files",
+    "Fix auto-fixable ESLint issues",
+    "Commit changes if any"
+  ],
+  "context": "Repository: ~/clawd/my-app\n\nRun prettier and eslint --fix, commit if changes made.",
+  "nextSteps": [
+    "cd ~/clawd/my-app",
+    "npx prettier --write 'src/**/*.ts'",
+    "npx eslint --fix 'src/**/*.ts'",
+    "git commit -am 'chore: auto format'"
+  ]
+}
+```
+
+### 4. Schedule Work
+
+```bash
+# Run every night at 2 AM
+awm create-event <project-id> "0 2 * * *"
+
+# Or for testing: every 5 minutes
+awm create-event <project-id> "*/5 * * * *"
+```
+
+### 5. Start the Daemon
 
 ```bash
 awm start
 ```
 
-### Create a project
+The daemon will now monitor events and spawn work sessions autonomously!
 
+## 📚 Documentation
+
+- **[TUTORIAL.md](./TUTORIAL.md)** - Step-by-step getting started guide
+- **[EXAMPLES.md](./EXAMPLES.md)** - Real-world use cases and patterns
+- **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)** - Common issues and solutions
+- **[PROJECT.md](./PROJECT.md)** - Development roadmap
+
+## 🎯 Common Use Cases
+
+### Nightly Code Cleanup
 ```bash
-awm create-project "My Cool Project" "Build something awesome"
+awm create-project "Code Formatter" "Auto-format code and fix linting issues"
+# Schedule: 0 2 * * * (2 AM daily)
 ```
 
-### Create a time-based event
-
+### Dependency Updates
 ```bash
-# Work on project every day at 2 AM
-awm create-event <project-id> "0 2 * * *"
+awm create-project "Dependency Patrol" "Update packages and check security"
+# Schedule: 0 9 * * 1 (Monday mornings)
 ```
 
-### Check status
-
+### Documentation Sync
 ```bash
-awm status
+awm create-project "README Keeper" "Keep README in sync with code changes"
+# Schedule: 0 3 * * * (3 AM daily)
 ```
 
-### List projects
+### Test Coverage
+```bash
+awm create-project "Test Bot" "Write tests for untested modules"
+# Schedule: 0 1 * * 2 (Tuesday nights)
+```
+
+See [EXAMPLES.md](./EXAMPLES.md) for complete project configurations.
+
+## 💡 Key Commands
 
 ```bash
-awm list-projects
+# Daemon management
+awm start                           # Start daemon
+awm stop                            # Stop daemon (Ctrl+C)
+awm status                          # Show status
+
+# Project management
+awm create-project <name> <desc>    # Create project
+awm list-projects                   # List all projects
+
+# Event management
+awm create-event <proj-id> <cron>   # Schedule work
+awm list-events                     # List events (if implemented)
+
+# Configuration
+awm config set <key> <value>        # Set config
+awm config show                     # View config
 ```
+
+## 🔧 Cron Schedule Examples
+
+```bash
+"0 2 * * *"      # 2 AM daily
+"0 9 * * 1-5"    # 9 AM weekdays
+"*/30 * * * *"   # Every 30 minutes
+"0 */4 * * *"    # Every 4 hours
+"0 0 * * 0"      # Midnight Sundays
+```
+
+Test expressions at https://crontab.guru
 
 ## 📁 Data Structure
 
@@ -224,30 +334,64 @@ npm start
 - [ ] Resource limits per project
 - [ ] Project templates
 
-## 🧪 Example Workflow
+## ❓ Troubleshooting
+
+### Command not found after `npm link`
 
 ```bash
-# Create a project
-awm create-project "Code Refactor" "Refactor legacy API endpoints"
+# Check npm global bin path
+echo $PATH | grep -o "$(npm bin -g)"
 
-# Edit the project JSON to add goals and context
-# (or build a CLI command for this)
+# If empty, add to PATH:
+export PATH="$(npm bin -g):$PATH"
 
-# Schedule daily work at 2 AM
-awm create-event <project-id> "0 2 * * *"
-
-# Start the daemon
-awm start
+# Or use npx:
+npx awm status
 ```
 
-Now the AI will work on the refactor every day at 2 AM, make progress, and save the results!
+### Sessions stay in simulation mode
+
+Ensure Clawdbot is configured:
+```bash
+awm config set clawdbotGatewayUrl http://localhost:18789
+awm config set clawdbotAuthToken your-token-here
+```
+
+### Events not triggering
+
+1. Verify cron syntax at https://crontab.guru
+2. Check system time: `date`
+3. Ensure event is enabled in `~/.awm/events.json`
+4. Check daemon logs for errors
+
+### Discord notifications not working
+
+1. Verify config: `awm config show`
+2. Check channel ID (right-click channel → Copy ID)
+3. Ensure bot has `SEND_MESSAGES` permission
+4. Test manually with test script
+
+**For more issues, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)**
 
 ## 🔐 Security
 
 - Projects can contain sensitive context - protect the data directory
 - Work sessions run with full AI capabilities - only schedule trusted work
 - Review session outcomes before deploying changes
+- Use `.gitignore` to exclude `~/.awm/` if versioning workspace
+
+## 🤝 Contributing
+
+Contributions welcome! Please:
+1. Read [PROJECT.md](./PROJECT.md) for architecture overview
+2. Add tests for new features
+3. Update documentation
+4. Follow TypeScript strict mode
 
 ## 📄 License
 
 ISC
+
+---
+
+**Built with ❤️ for autonomous AI workflows**

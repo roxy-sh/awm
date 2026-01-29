@@ -1,6 +1,15 @@
 import type { Project, WorkSession, WorkEvent } from './types';
 /**
  * Manages persistence of AWM state to disk
+ *
+ * StateManager handles all CRUD operations for projects, sessions,
+ * and events. It uses JSON files for simple, human-readable storage
+ * and maintains in-memory state for fast access.
+ *
+ * File structure:
+ * - projects.json: All project definitions
+ * - sessions.json: Work session history
+ * - events.json: Scheduled event triggers
  */
 export declare class StateManager {
     private dataDir;
@@ -12,10 +21,17 @@ export declare class StateManager {
     private getEventsPath;
     /**
      * Load state from disk
+     *
+     * Reads JSON files and populates in-memory Maps.
+     * Handles missing files gracefully (ENOENT = file not found).
+     * Other errors (permissions, corrupt JSON) are thrown.
      */
     load(): Promise<void>;
     /**
      * Save state to disk
+     *
+     * Converts in-memory Maps to JSON arrays and writes atomically.
+     * All three files are written in parallel for performance.
      */
     save(): Promise<void>;
     createProject(project: Omit<Project, 'id' | 'createdAt' | 'updatedAt' | 'hoursSpent'>): Project;
