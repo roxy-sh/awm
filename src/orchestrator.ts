@@ -1,7 +1,8 @@
 import { StateManager } from './state';
 import { EventManager } from './events';
 import { WorkQueue } from './queue';
-import type { AWMConfig, WorkSession, WorkTrigger } from './types';
+import { ClawdbotIntegration } from './clawdbot';
+import type { AWMConfig, WorkSession, WorkTrigger, Project } from './types';
 
 /**
  * Main orchestrator for autonomous work
@@ -11,15 +12,21 @@ export class WorkOrchestrator {
   private state: StateManager;
   private events: EventManager;
   private queue: WorkQueue;
+  private clawdbot?: ClawdbotIntegration;
   private running: boolean;
   private processingInterval?: NodeJS.Timeout;
 
-  constructor(config: AWMConfig, state: StateManager, events: EventManager) {
+  constructor(config: AWMConfig, state: StateManager, events: EventManager, clawdbot?: ClawdbotIntegration) {
     this.config = config;
     this.state = state;
     this.events = events;
     this.queue = new WorkQueue();
     this.running = false;
+    this.clawdbot = clawdbot;
+
+    if (clawdbot?.isConfigured()) {
+      console.log('Clawdbot integration configured');
+    }
 
     // Listen to event triggers
     this.events.on('trigger', (trigger: WorkTrigger) => {
@@ -164,45 +171,145 @@ export class WorkOrchestrator {
   /**
    * Spawn a Clawdbot session for autonomous work
    */
-  private async spawnClawdbotSession(project: any, session: WorkSession): Promise<void> {
-    // Build context message for the AI
+  private async spawnClawdbotSession(project: Project, session: WorkSession): Promise<void> {
     const contextMessage = this.buildWorkContext(project);
 
     console.log(`Spawning Clawdbot session for project: ${project.name}`);
-    console.log(`Context: ${contextMessage.substring(0, 200)}...`);
 
-    // TODO: Integrate with actual Clawdbot sessions_spawn
-    // For now, just simulate and mark as completed
+    if (!this.clawdbot) {
+      console.warn('Clawdbot client not configured, running in simulation mode');
+      
+      // Simulate work
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const duration = Date.now() - (session.startedAt || Date.now());
+      this.state.updateSession(session.id, {
+        status: 'completed',
+        completedAt: Date.now(),
+        duration,
+        summary: 'Simulated work session (no Clawdbot client configured)',
+        outcome: 'Simulation mode - configure clawdbotGatewayUrl and clawdbotAuthToken',
+      });
+
+      const hoursSpent = duration / (1000 * 60 * 60);
+      this.state.updateProject(project.id, {
+        hoursSpent: project.hoursSpent + hoursSpent,
+      });
+
+      this.state.markSessionInactive(session.id);
+      await this.state.save();
+      return;
+    }
+
+    try {
+      // Spawn real Clawdbot session
+      const result = await this.clawdbot.spawnSession({
+        task: contextMessage,
+        label: `awm-${project.id}`,
+        cleanup: 'keep', // Keep session for review
+        runTimeoutSeconds: Math.floor(this.config.defaultSessionDuration / 1000),
+      });
+
+      console.log(`Clawdbot session spawned: ${result.sessionKey}`);
+
+      // Update session with Clawdbot session key
+      this.state.updateSession(session.id, {
+        clawdbotSessionKey: result.sessionKey,
+      });
+
+      await this.state.save();
+
+      // Wait for session to complete (poll or wait for callback)
+      await this.waitForSessionCompletion(session.id, result.sessionKey);
+
+    } catch (error) {
+      console.error('Failed to spawn Clawdbot session:', error);
+      
+      const duration = Date.now() - (session.startedAt || Date.now());
+      this.state.updateSession(session.id, {
+        status: 'failed',
+        completedAt: Date.now(),
+        duration,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+
+      this.state.markSessionInactive(session.id);
+      await this.state.save();
+    }
+  }
+
+  /**
+   * Wait for a Clawdbot session to complete and extract results
+   */
+  private async waitForSessionCompletion(sessionId: string, clawdbotSessionKey: string): Promise<void> {
+    // Poll for completion (simple approach for now)
+    const maxWaitTime = this.config.defaultSessionDuration + 60000; // +1 minute buffer
+    const startTime = Date.now();
+    const pollInterval = 5000; // Check every 5 seconds
+
+    while (Date.now() - startTime < maxWaitTime) {
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+
+      try {
+        if (!this.clawdbot) break;
+
+        // Get session history to check if it's done
+        const history = await this.clawdbot.getSessionHistory(clawdbotSessionKey, 10);
+        
+        if (history.length > 0) {
+          // Session has completed (has messages)
+          const lastMessage = history[history.length - 1];
+          
+          const duration = Date.now() - (this.state.getSession(sessionId)?.startedAt || Date.now());
+          
+          this.state.updateSession(sessionId, {
+            status: 'completed',
+            completedAt: Date.now(),
+            duration,
+            summary: 'Session completed - check history for details',
+            outcome: lastMessage.content?.substring(0, 500) || 'No output',
+          });
+
+          // Update project hours
+          const session = this.state.getSession(sessionId);
+          const project = this.state.getProject(session!.projectId);
+          if (project) {
+            const hoursSpent = duration / (1000 * 60 * 60);
+            this.state.updateProject(project.id, {
+              hoursSpent: project.hoursSpent + hoursSpent,
+            });
+          }
+
+          this.state.markSessionInactive(sessionId);
+          await this.state.save();
+
+          console.log(`Session ${clawdbotSessionKey} completed successfully`);
+          return;
+        }
+      } catch (error) {
+        console.error('Error polling session:', error);
+      }
+    }
+
+    // Timeout
+    console.warn(`Session ${clawdbotSessionKey} timed out`);
+    const duration = Date.now() - (this.state.getSession(sessionId)?.startedAt || Date.now());
     
-    // Simulate work
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Mark session as completed
-    const duration = Date.now() - (session.startedAt || Date.now());
-    this.state.updateSession(session.id, {
-      status: 'completed',
+    this.state.updateSession(sessionId, {
+      status: 'failed',
       completedAt: Date.now(),
       duration,
-      summary: 'Simulated work session completed',
-      outcome: 'Successfully worked on the project',
+      error: 'Session timeout',
     });
 
-    // Update project hours
-    const hoursSpent = duration / (1000 * 60 * 60);
-    this.state.updateProject(project.id, {
-      hoursSpent: project.hoursSpent + hoursSpent,
-    });
-
-    this.state.markSessionInactive(session.id);
+    this.state.markSessionInactive(sessionId);
     await this.state.save();
-
-    console.log(`Work session completed for project: ${project.name}`);
   }
 
   /**
    * Build context message for AI work session
    */
-  private buildWorkContext(project: any): string {
+  private buildWorkContext(project: Project): string {
     return `
 # Autonomous Work Session
 
@@ -210,16 +317,23 @@ export class WorkOrchestrator {
 ${project.description}
 
 ## Goals
-${project.goals.map((g: string) => `- ${g}`).join('\n')}
+${project.goals.map(g => `- ${g}`).join('\n')}
 
 ## Context
 ${project.context}
 
 ## Next Steps
-${project.nextSteps.map((s: string) => `- ${s}`).join('\n')}
+${project.nextSteps.map(s => `- ${s}`).join('\n')}
 
-## Instructions
-Work autonomously on this project. Make progress on the next steps, update files, run tests, commit changes, and document your work. When done, provide a summary of what was accomplished.
+## Your Task
+Work autonomously on this project. Make progress on the next steps, update files, run tests, commit changes, and document your work. 
+
+When done, provide a concise summary of:
+1. What you accomplished
+2. Any blockers or issues
+3. Recommended next steps
+
+Work directory: ~/clawd/awm-workspace/${project.id}
 `.trim();
   }
 

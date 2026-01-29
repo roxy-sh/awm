@@ -1,6 +1,7 @@
 import { StateManager } from './state';
 import { EventManager } from './events';
 import { WorkOrchestrator } from './orchestrator';
+import { ClawdbotIntegration } from './clawdbot';
 import type { AWMConfig } from './types';
 /**
  * Main AWM class - entry point for the system
@@ -11,7 +12,7 @@ export declare class AWM {
     private events;
     private orchestrator;
     private initialized;
-    constructor(config?: Partial<AWMConfig>);
+    constructor(config?: Partial<AWMConfig>, clawdbot?: ClawdbotIntegration);
     /**
      * Initialize the AWM system
      */
@@ -62,4 +63,6 @@ export * from './state';
 export * from './events';
 export * from './orchestrator';
 export * from './queue';
+export * from './clawdbot';
+export * from './config';
 //# sourceMappingURL=index.d.ts.map

@@ -1,5 +1,6 @@
 import { StateManager } from './state';
 import { EventManager } from './events';
+import { ClawdbotIntegration } from './clawdbot';
 import type { AWMConfig } from './types';
 /**
  * Main orchestrator for autonomous work
@@ -9,9 +10,10 @@ export declare class WorkOrchestrator {
     private state;
     private events;
     private queue;
+    private clawdbot?;
     private running;
     private processingInterval?;
-    constructor(config: AWMConfig, state: StateManager, events: EventManager);
+    constructor(config: AWMConfig, state: StateManager, events: EventManager, clawdbot?: ClawdbotIntegration);
     /**
      * Start the orchestrator
      */
@@ -36,6 +38,10 @@ export declare class WorkOrchestrator {
      * Spawn a Clawdbot session for autonomous work
      */
     private spawnClawdbotSession;
+    /**
+     * Wait for a Clawdbot session to complete and extract results
+     */
+    private waitForSessionCompletion;
     /**
      * Build context message for AI work session
      */

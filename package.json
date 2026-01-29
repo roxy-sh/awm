@@ -13,11 +13,18 @@
     "start": "node dist/cli.js start",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["autonomous", "ai", "work", "scheduler", "event-driven"],
+  "keywords": [
+    "autonomous",
+    "ai",
+    "work",
+    "scheduler",
+    "event-driven"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@types/node": "^25.1.0",
+    "axios": "^1.13.4",
     "chokidar": "^5.0.0",
     "cron": "^4.4.0",
     "tsx": "^4.21.0",

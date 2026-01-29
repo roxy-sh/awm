@@ -2,6 +2,7 @@ import path from 'path';
 import { StateManager } from './state';
 import { EventManager } from './events';
 import { WorkOrchestrator } from './orchestrator';
+import { ClawdbotIntegration } from './clawdbot';
 import type { AWMConfig } from './types';
 
 /**
@@ -14,7 +15,7 @@ export class AWM {
   private orchestrator: WorkOrchestrator;
   private initialized: boolean;
 
-  constructor(config?: Partial<AWMConfig>) {
+  constructor(config?: Partial<AWMConfig>, clawdbot?: ClawdbotIntegration) {
     const defaultConfig: AWMConfig = {
       dataDir: path.join(process.env.HOME || '/tmp', '.awm'),
       maxConcurrentSessions: 2,
@@ -25,7 +26,7 @@ export class AWM {
     this.config = { ...defaultConfig, ...config };
     this.state = new StateManager(this.config.dataDir);
     this.events = new EventManager();
-    this.orchestrator = new WorkOrchestrator(this.config, this.state, this.events);
+    this.orchestrator = new WorkOrchestrator(this.config, this.state, this.events, clawdbot);
     this.initialized = false;
   }
 
@@ -98,9 +99,10 @@ export class AWM {
   }
 }
 
-// Export everything
 export * from './types';
 export * from './state';
 export * from './events';
 export * from './orchestrator';
 export * from './queue';
+export * from './clawdbot';
+export * from './config';
