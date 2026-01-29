@@ -119,7 +119,22 @@ AWM stores data in `~/.awm/` by default:
 
 ## 🎛️ Configuration
 
-Set via environment variables or constructor:
+### Via CLI
+
+```bash
+# Set Clawdbot gateway
+awm config set clawdbotGatewayUrl http://localhost:18789
+awm config set clawdbotAuthToken your-token-here
+
+# Configure Discord notifications
+awm config set discord.channelId 1466124749800210656
+awm config set discord.enabled true
+
+# View current config
+awm config show
+```
+
+### Via Code
 
 ```typescript
 const awm = new AWM({
@@ -127,9 +142,39 @@ const awm = new AWM({
   maxConcurrentSessions: 2,
   defaultSessionDuration: 30 * 60 * 1000, // 30 min
   logLevel: 'info',
-  clawdbotGatewayUrl: 'http://localhost:18789',
-  clawdbotAuthToken: 'your-token',
+  discord: {
+    channelId: '1466124749800210656',
+    enabled: true,
+  },
 });
+```
+
+## 📢 Discord Notifications
+
+AWM can post work session results to Discord:
+
+```
+✅ **AWM Work Session Complete**
+
+**Project:** My Project
+**Duration:** 5.2 minutes
+**Session:** `session-key-123`
+
+**Summary:**
+Successfully refactored authentication system
+
+**Outcome:**
+1. ✅ Updated 12 API endpoints
+2. ✅ Added comprehensive tests
+3. ✅ Documented changes
+
+Repository: https://github.com/...
+```
+
+Configure with:
+```bash
+awm config set discord.channelId YOUR_CHANNEL_ID
+awm config set discord.enabled true
 ```
 
 ## 🔄 Event Loop
@@ -154,12 +199,26 @@ npm run build
 npm start
 ```
 
-## 📝 TODO
+## 📝 Status
 
-- [ ] Integrate with Clawdbot sessions_spawn
-- [ ] Add webhook support
+### ✅ Phase 1: Architecture (Complete)
+- [x] Event-driven system design
+- [x] State management with JSON persistence
+- [x] Work queue with priorities
+- [x] Session orchestration
+- [x] Cron-based scheduling
+
+### ✅ Phase 2: Integration (Complete)
+- [x] Clawdbot session spawning (callback-based)
+- [x] Session polling and completion detection
+- [x] Discord notifications
+- [x] Config management
+- [x] Test suite with mocks
+
+### 🚧 Phase 3: Production (Next)
+- [ ] Meta-agent wrapper with real tool injection
+- [ ] Webhook server for external triggers
 - [ ] File watcher implementation
-- [ ] Progress notifications
 - [ ] Web dashboard
 - [ ] Session timeout handling
 - [ ] Resource limits per project
