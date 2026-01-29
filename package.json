@@ -1,0 +1,27 @@
+{
+  "name": "awm",
+  "version": "1.0.0",
+  "description": "Autonomous Work Manager - Event-driven system for autonomous AI project work",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "awm": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/cli.ts",
+    "start": "node dist/cli.js start",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["autonomous", "ai", "work", "scheduler", "event-driven"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/node": "^25.1.0",
+    "chokidar": "^5.0.0",
+    "cron": "^4.4.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "zod": "^4.3.6"
+  }
+}
